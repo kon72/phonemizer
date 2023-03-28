@@ -39,6 +39,67 @@ from phonemizer.utils import list2str, str2list
 Backend = Literal['espeak', 'espeak-mbrola', 'festival', 'segments']
 
 
+def create_phonemizer(  # pylint: disable=too-many-arguments
+        language: str = 'en-us',
+        backend: Backend = 'espeak',
+        separator: Optional[Separator] = default_separator,
+        strip: bool = False,
+        prepend_text: bool = False,
+        preserve_empty_lines: bool = False,
+        preserve_punctuation: bool = False,
+        punctuation_marks: Union[str, Pattern] = Punctuation.default_marks(),
+        with_stress: bool = False,
+        tie: Union[bool, str] = False,
+        language_switch: LanguageSwitch = 'keep-flags',
+        words_mismatch: WordMismatch = 'ignore',
+        njobs: int = 1,
+        logger: Logger = get_logger()):
+    # ensure we are using a compatible Python version
+    if sys.version_info < (3, 6):  # pragma: nocover
+        logger.error(
+            'Your are using python-%s which is unsupported by the phonemizer, '
+            'please update to python>=3.6', ".".join(sys.version_info))
+
+    # ensure the arguments are valid
+    _check_arguments(
+        backend, with_stress, tie, separator, language_switch, words_mismatch)
+
+    # preserve_punctuation and word separator not valid for espeak-mbrola
+    if backend == 'espeak-mbrola' and preserve_punctuation:
+        logger.warning('espeak-mbrola backend cannot preserve punctuation')
+    if backend == 'espeak-mbrola' and separator.word:
+        logger.warning('espeak-mbrola backend cannot preserve word separation')
+
+    # initialize the phonemization backend
+    if backend == 'espeak':
+        phonemizer = BACKENDS[backend](
+            language,
+            punctuation_marks=punctuation_marks,
+            preserve_punctuation=preserve_punctuation,
+            with_stress=with_stress,
+            tie=tie,
+            language_switch=language_switch,
+            words_mismatch=words_mismatch,
+            logger=logger)
+    elif backend == 'espeak-mbrola':
+        phonemizer = BACKENDS[backend](
+            language,
+            logger=logger)
+    else:  # festival or segments
+        phonemizer = BACKENDS[backend](
+            language,
+            punctuation_marks=punctuation_marks,
+            preserve_punctuation=preserve_punctuation,
+            logger=logger)
+
+    def do_phonemize(text):
+        return _phonemize(
+            phonemizer, text, separator, strip, njobs, prepend_text,
+            preserve_empty_lines)
+
+    return do_phonemize
+
+
 def phonemize(  # pylint: disable=too-many-arguments
         text,
         language: str = 'en-us',

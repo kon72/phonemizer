@@ -33,4 +33,5 @@ if __PHONEMIZER_SETUP__:  # pragma: nocover
     sys.stderr.write(
         'Partial import of phonemizer during the build process.\n')
 else:
+    from .phonemize import create_phonemizer  # pylint: disable=unused-import
     from .phonemize import phonemize  # pylint: disable=unused-import
